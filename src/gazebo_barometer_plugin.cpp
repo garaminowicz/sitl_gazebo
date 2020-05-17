@@ -139,13 +139,9 @@ void BarometerPlugin::OnUpdate(const common::UpdateInfo&)
     float pose_n_z = -pose_model.Pos().Z(); // convert Z-component from ENU to NED
 
     // calculate abs_pressure using an ISA model for the tropsphere (valid up to 11km above MSL)
-    const float lapse_rate = 0.0065f; // reduction in temperature with altitude (Kelvin/m)
-    const float temperature_msl = 288.0f; // temperature at MSL (Kelvin)
     float alt_msl = (float)alt_home_ - pose_n_z;
-    float temperature_local = temperature_msl - lapse_rate * alt_msl;
-    float pressure_ratio = powf((temperature_msl/temperature_local), 5.256f);
-    const float pressure_msl = 101325.0f; // pressure at MSL
-    float absolute_pressure = pressure_msl / pressure_ratio;
+    float temperature_local = world_->Atmosphere().Temperature(alt_msl);
+    float absolute_pressure = world_->Atmosphere().Pressure(alt_msl);
 
     // generate Gaussian noise sequence using polar form of Box-Muller transformation
     double x1, x2, w, y1;
@@ -175,8 +171,7 @@ void BarometerPlugin::OnUpdate(const common::UpdateInfo&)
     baro_msg_.set_absolute_pressure(absolute_pressure);
 
     // calculate density using an ISA model for the tropsphere (valid up to 11km above MSL)
-    const float density_ratio = powf((temperature_msl/temperature_local) , 4.256f);
-    float rho = 1.225f / density_ratio;
+    float rho = world_->Atmosphere().MassDensity(alt_msl);
 
     // calculate pressure altitude including effect of pressure noise
     baro_msg_.set_pressure_altitude(alt_msl - abs_pressure_noise / (gravity_W_.Length() * rho));
